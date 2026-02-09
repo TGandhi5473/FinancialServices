@@ -1,49 +1,66 @@
-# 🛡️ Fin-Agent Local: Autonomous SEC Analyst
+# 🛡️ Fin-Agent Local: High-Precision SEC Auditor
 
-**Fin-Agent Local** is a "Bring Your Own Key" (BYOK) and "Bring Your Own Identity" (BYOI) research tool. It automates the extraction of SEC 10-K and 10-Q filings, builds a local knowledge base, and uses an agentic reasoning loop to perform deep financial audits.
+**Fin-Agent Local** is a "Bring Your Own Key" (BYOK) and "Bring Your Own Identity" (BYOI) research workbench. It automates the extraction of SEC 10-K filings, builds a local RAG knowledge base, and utilizes a **Dual-Agent Audit** loop to ensure financial analysis is grounded and hallucination-free.
 
 
 
 ---
 
-## 🚀 The Philosophy
-This tool utilizes a **Hybrid Architecture** to ensure financial accuracy:
-1.  **Deterministic Extraction:** Python scripts via `edgartools` handle the "Facts" (SEC filings, XBRL data) to prevent math hallucinations.
-2.  **Probabilistic Reasoning:** Local (Ollama) or Cloud (OpenAI) agents handle the "Judgment" (analyzing management tone, risk factors, and environmental shifts).
+## 🚀 Key Features
+- **Dual-Agent Reasoning:** Features a *Junior Analyst* pass followed by a *Senior Auditor* verification pass.
+- **Local RAG:** Uses `ChromaDB` and `nomic-embed-text` to keep your financial data on your machine.
+- **Audit Trails:** Automatically logs every draft and final verdict to `logs/audit_trail.jsonl` for performance tracking.
+- **SEC Compliance:** Built-in identity gating to comply with SEC EDGAR's automated access policies.
 
 ---
 
 ## 🛠️ Setup & Installation
 
 ### 1. Prerequisites
-* **Python 3.10+**
-* **Ollama:** [Download here](https://ollama.com/)
-    * `ollama pull deepseek-r1:7b` (Recommended Reasoning Model)
-    * `ollama pull nomic-embed-text` (Required Embedding Model)
+- **Python 3.10+**
+- **Ollama:** [Download here](https://ollama.com/)
+    - `ollama pull deepseek-r1:7b` (Recommended Reasoning Model)
+    - `ollama pull nomic-embed-text` (Required Embedding Model)
 
-### 2. Clone & Install
+### 2. Installation
 ```bash
-git clone [https://github.com/TGandhi5473/FinancialServices.git]
+git clone [https://github.com/TGandhi5473/financialservices.git](https://github.com/TGandhi5473/financialservices.git)
 cd FinancialServices
 pip install -r requirements.txt
+python sync_tickers.py
 
-3. Initialize Ticker Database
-This repo includes a pre-loaded data/us_tickers.csv. To update it to the absolute latest SEC mapping (recommended monthly):
-Bashpython sync_tickers.py
-🖥️ UsageRun the Streamlit interface:
+
+🖥️ Usage
+Launch the App:
+
 Bash
+
 streamlit run app.py
-The Workflow:Identity: Enter your email in the sidebar (Required by SEC EDGAR compliance).Selection: Search for any US-listed company via the autocomplete search.Ingestion: If the data isn't cached, the script will fetch the 10-K and index it locally.
-Analysis: Query the "Judge" to analyze the filing using either your local GPU or an OpenAI API key.
-📂 Project Structure
-File/FolderPurposeapp.py
-The Streamlit entry point and "Gatekeeper" logic.
-src/scraper.py
-Handles deterministic extraction from SEC EDGAR.
-src/ingester.py
-Manages local RAG (Vector DB) creation.
-src/judge.pyThe Agentic loop that switches between Local and Cloud LLMs.vector_db/(Ignored) Local binary storage for indexed filings.data/filings/(Ignored) Cached raw text and JSON from the SEC.data/us_tickers.csv(Included) Pre-loaded list of 10k+ US tickers for fast lookup.
-🔒 Security & Privacy
-Local First: Filings and Vector indices are stored on your machine. The .gitignore prevents accidental leaks of private financial data to GitHub.
-BYO Credentials: No API keys or emails are hardcoded. Your email is only used for the User-Agent header as per SEC requirements.Compliance: The application strictly adheres to the SEC's 10-request-per-second limit.
-⚖️ LicenseDistributed under the MIT License. See LICENSE for more information.
+Setup Identity: Enter your email in the sidebar (required for SEC data access).
+
+Ingest Data: Select a company (e.g., AAPL, NVDA). If the local index doesn't exist, the app will scrape and embed the latest 10-K automatically.
+
+Audit: Ask complex questions. Enable High Precision Mode to see the Auditor agent refine the Analyst's initial findings.
+
+Analyze Logs: Expand the "Audit History" in the sidebar to view the "Before vs. After" of your agentic reasoning.
+
+
+File,Description
+app.py,Streamlit UI with integrated Log Viewer.
+src/judge.py,Core Agentic logic (Analyst + Auditor).
+src/scraper.py,Deterministic SEC EDGAR data extraction.
+src/ingester.py,Local Vector DB management (Chroma).
+src/evaluator.py,Log parsing and metrics calculation.
+logs/,(Ignored) Local JSONL audit trails.
+vector_db/,(Ignored) Local persistent embeddings.
+
+
+🔒 Privacy & Security
+No Data Leaks: Raw filings and vector stores are excluded from Git via .gitignore.
+
+Credential Safety: API keys and emails are handled via session state and never hardcoded.
+
+Auditability: The local log system ensures you can always trace how the AI arrived at a specific financial conclusion.
+
+⚖️ License
+Distributed under the MIT License.
