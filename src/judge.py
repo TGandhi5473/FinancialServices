@@ -1,33 +1,75 @@
+import os
+import json
+from datetime import datetime
 from langchain_ollama import ChatOllama
 from langchain_openai import ChatOpenAI
 from langchain_community.vectorstores import Chroma
 from langchain_ollama import OllamaEmbeddings
+from langchain.schema import SystemMessage, HumanMessage
 
-def run_local_judge(ticker, query, mode="Local", api_key=None):
-    """The Agentic Brain: Reasons using the selected LLM."""
+def log_audit(ticker, query, analyst_draft, final_verdict, mode):
+    """Saves the reasoning process to a local JSONL file for evaluation."""
+    os.makedirs("logs", exist_ok=True)
+    log_entry = {
+        "timestamp": datetime.now().isoformat(),
+        "ticker": ticker,
+        "query": query,
+        "model": mode,
+        "analyst_draft": analyst_draft,
+        "final_verdict": final_verdict,
+        # A simple heuristic to see if the Auditor actually changed anything
+        "was_refined": analyst_draft.strip() != final_verdict.strip()
+    }
+    
+    with open("logs/audit_trail.jsonl", "a") as f:
+        f.write(json.dumps(log_entry) + "\n")
+
+def run_local_judge(ticker, query, mode="Local", api_key=None, high_precision=True):
+    # 1. Initialize LLM
     if mode == "OpenAI" and api_key:
-        llm = ChatOpenAI(model="gpt-4o", api_key=api_key)
+        llm = ChatOpenAI(model="gpt-4o", api_key=api_key, temperature=0.1)
     else:
-        # DeepSeek-R1 is excellent for local financial reasoning
-        llm = ChatOllama(model="deepseek-r1:7b")
+        llm = ChatOllama(model="deepseek-r1:7b", temperature=0.1)
 
-    # Load context from Vector DB
+    # 2. Retrieve Context
     embeddings = OllamaEmbeddings(model="nomic-embed-text")
-    db = Chroma(persist_directory=f"vector_db/{ticker}", embedding_function=embeddings)
+    db_path = f"vector_db/{ticker}"
     
-    # Retrieve top 5 most relevant segments
-    context_docs = db.similarity_search(query, k=5)
-    context_text = "\n---\n".join([d.page_content for d in context_docs])
+    if not os.path.exists(db_path):
+        return "Error: Local knowledge base not found."
+        
+    db = Chroma(persist_directory=db_path, embedding_function=embeddings)
+    docs = db.similarity_search(query, k=5)
+    context_text = "\n---\n".join([d.page_content for d in docs])
 
-    system_prompt = f"""
-    You are an AI Financial Auditor. Analyze the provided SEC 10-K context for {ticker}.
-    Answer the user query with professional rigor. 
-    If you see contradictory environmental or solvency risks, highlight them.
+    # --- STEP 1: PRIMARY ANALYST PASS ---
+    analyst_system = f"You are a Junior Financial Analyst for {ticker}. Use ONLY the context provided."
+    analyst_query = f"CONTEXT:\n{context_text}\n\nUSER QUERY: {query}"
     
-    CONTEXT:
-    {context_text}
+    analyst_output = llm.invoke([
+        SystemMessage(content=analyst_system),
+        HumanMessage(content=analyst_query)
+    ]).content
+
+    if not high_precision:
+        return analyst_output
+
+    # --- STEP 2: SENIOR AUDITOR PASS ---
+    
+
+    auditor_system = f"""
+    You are a Senior Auditor. Review the Analyst's report for {ticker}.
+    Cross-reference every claim against the SOURCE CONTEXT.
+    Source: {context_text}
+    Analyst Draft: {analyst_output}
     """
     
-    # Simple chain-of-thought style invocation
-    response = llm.invoke([("system", system_prompt), ("human", query)])
-    return response.content
+    final_output = llm.invoke([
+        SystemMessage(content=auditor_system),
+        HumanMessage(content="Perform final audit. Correct errors or finalize.")
+    ]).content
+
+    # 3. Log the process for progress tracking
+    log_audit(ticker, query, analyst_output, final_output, mode)
+    
+    return final_output
