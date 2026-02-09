@@ -5,8 +5,11 @@ __pycache__/
 
 # IGNORE actual company data (Privacy)
 data/filings/
-vector_db/
+# Ignore everything in the folder
+vector_db/*
 
+# Except the .gitkeep file so the folder exists on clone
+!vector_db/.gitkeep
 # KEEP the ticker database for the UI (Public Info)
 !data/us_tickers.csv
 
