@@ -1,44 +1,109 @@
-from langchain_ollama import ChatOllama
-from langchain_openai import ChatOpenAI
-from langchain_community.vectorstores import Chroma
-from langchain_ollama import OllamaEmbeddings
+import streamlit as st
+import pandas as pd
+import os
+from src.scraper import collect_financials
+from src.ingester import create_vector_store
+from src.judge import run_local_judge
+from src.evaluator import get_audit_summary
 
-def run_local_judge(ticker, query, mode="Local", api_key=None, high_precision=False):
-    # 1. Setup Brain
-    if mode == "OpenAI" and api_key:
-        llm = ChatOpenAI(model="gpt-4o", api_key=api_key)
-    else:
-        llm = ChatOllama(model="deepseek-r1:7b")
+# 1. Page Configuration
+st.set_page_config(page_title="Fin-Agent Judge", layout="wide", page_icon="⚖️")
 
-    # 2. Retrieve Context
-    embeddings = OllamaEmbeddings(model="nomic-embed-text")
-    db = Chroma(persist_directory=f"vector_db/{ticker}", embedding_function=embeddings)
-    docs = db.similarity_search(query, k=5)
-    context = "\n---\n".join([d.page_content for d in docs])
-
-    # 3. Primary Analysis Pass
-    primary_prompt = f"Analyze {ticker} based on this context: {context}\nQuery: {query}"
-    primary_verdict = llm.invoke(primary_prompt).content
-
-    if not high_precision:
-        return primary_verdict
-
-    # 4. Evaluator Pass (The Audit)
-    eval_prompt = f"""
-    You are a Senior Financial Auditor. Critique this Analyst Report for {ticker}.
+# 2. Sidebar: Identity, Engine, and Settings
+with st.sidebar:
+    st.header("🔑 Credentials")
+    user_email = st.text_input("SEC User-Agent Email", placeholder="analyst@firm.com")
+    st.divider()
     
-    REPORT TO AUDIT:
-    {primary_verdict}
+    st.header("⚙️ Agent Settings")
+    engine = st.radio("Reasoning Engine", ["Local (DeepSeek-R1)", "Cloud (GPT-4o)"])
+    api_key = st.text_input("OpenAI Key", type="password") if "Cloud" in engine else None
     
-    SOURCE CONTEXT:
-    {context}
+    high_precision = st.toggle(
+        "High Precision Mode", 
+        value=True, 
+        help="Enables a secondary 'Senior Auditor' agent to verify the Analyst's findings."
+    )
+
+    # 3. Occasional Log Analysis (Audit Viewer)
+    st.divider()
+    with st.expander("📊 Audit History & Evals"):
+        if st.button("Refresh History"):
+            history_df = get_audit_summary()
+            if history_df is not None:
+                # Display high-level metrics
+                refinement_rate = (history_df['was_refined'].sum() / len(history_df)) * 100
+                st.metric("Refinement Rate", f"{refinement_rate:.1f}%")
+                
+                # Show comparison table
+                st.dataframe(
+                    history_df[['timestamp', 'ticker', 'was_refined']],
+                    use_container_width=True,
+                    hide_index=True
+                )
+                
+                if st.checkbox("Show Detailed Drafts"):
+                    st.json(history_df[['analyst_draft', 'final_verdict']].to_dict('records'))
+            else:
+                st.info("No audit logs found.")
+
+# 4. Main Interface
+st.title("🛡️ Fin-Agent Judge")
+st.caption("Local SEC Ingestion & Dual-Agent Financial Auditing")
+
+TICKER_PATH = "data/us_tickers.csv"
+
+if os.path.exists(TICKER_PATH):
+    # Load and format ticker list
+    ticker_df = pd.read_csv(TICKER_PATH)
+    ticker_options = (ticker_df['Symbol'] + " - " + ticker_df['Name']).tolist()
+    selection = st.selectbox("Select Target Company", options=ticker_options, index=None)
     
-    INSTRUCTIONS:
-    1. Identify any facts in the report NOT found in the context (Hallucinations).
-    2. Check if the numbers in the report match the context exactly.
-    3. If errors are found, output 'REFINE' followed by the corrected report.
-    4. If the report is perfect, output 'APPROVED' followed by the original report.
-    """
-    
-    final_audit = llm.invoke(eval_prompt).content
-    return final_audit
+    if selection:
+        ticker = selection.split(" - ")[0]
+        
+        if not user_email:
+            st.warning("⚠️ Identity Required: Enter your email in the sidebar to comply with SEC policies.")
+        else:
+            db_path = f"vector_db/{ticker}"
+            
+            # Check for local knowledge base
+            if not os.path.exists(db_path):
+                st.info(f"Knowledge base for {ticker} not found. Ingestion required.")
+                if st.button(f"Scrape & Index {ticker}"):
+                    with st.status(f"Processing {ticker}...", expanded=True) as status:
+                        st.write("Downloading 10-K sections...")
+                        json_path = collect_financials(ticker, user_email)
+                        st.write("Generating local embeddings...")
+                        create_vector_store(json_path, ticker)
+                        status.update(label="Ready for Analysis!", state="complete")
+                    st.rerun()
+            else:
+                # --- Analysis Phase ---
+                st.success(f"✅ {ticker} Context Loaded.")
+                query = st.text_area("Audit Query:", "What are the primary liquidity risks mentioned?")
+                
+                if st.button("⚖️ Run Agentic Audit"):
+                    with st.status("Agentic Process Initialized...") as status:
+                        st.write("Step 1: Analyst pass (Synthesizing data)...")
+                        
+                        # Execute Dual-Agent Logic
+                        verdict = run_local_judge(
+                            ticker=ticker, 
+                            query=query, 
+                            mode="OpenAI" if "Cloud" in engine else "Local", 
+                            api_key=api_key,
+                            high_precision=high_precision
+                        )
+                        
+                        status.update(label="Audit Complete!", state="complete")
+                    
+                    st.subheader("Final Agent Verdict")
+                    st.markdown(verdict)
+                    
+                    if high_precision:
+                        st.info("💡 Note: This verdict was verified by the Senior Auditor pass.")
+else:
+    st.error("Missing `data/us_tickers.csv`. Please run `python sync_tickers.py` to initialize.")
+
+
