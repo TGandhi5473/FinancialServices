@@ -1,23 +1,14 @@
-# Python bytecode
+# Python artifacts
 __pycache__/
 *.py[cod]
-*$py.class
-
-# Environments
-.venv/
-venv/
-ENV/
 .env
 
-# Project Specific Data (LEAK PREVENTION)
+# IGNORE actual company data (Privacy)
 data/filings/
-data/us_tickers.csv
 vector_db/
 
-# Streamlit
-.streamlit/secrets.toml
-.streamlit/static/
+# KEEP the ticker database for the UI (Public Info)
+!data/us_tickers.csv
 
-# OS Specific
-.DS_Store
-Thumbs.db
+# Streamlit
+.streamlit/
