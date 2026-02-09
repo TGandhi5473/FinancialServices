@@ -12,6 +12,7 @@ vector_db/*
 !vector_db/.gitkeep
 # KEEP the ticker database for the UI (Public Info)
 !data/us_tickers.csv
-
+# Add this to your existing .gitignore
+logs/
 # Streamlit
 .streamlit/
