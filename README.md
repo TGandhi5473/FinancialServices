@@ -28,7 +28,7 @@ git clone [https://github.com/TGandhi5473/financialservices.git](https://github.
 cd financialservices
 pip install -r requirements.txt
 python sync_tickers.py
-
+```
 ## 📂 Project Structure
 
 | File / Folder | Description |
