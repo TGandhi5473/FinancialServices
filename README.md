@@ -25,42 +25,34 @@
 ### 2. Installation
 ```bash
 git clone [https://github.com/TGandhi5473/financialservices.git](https://github.com/TGandhi5473/financialservices.git)
-cd FinancialServices
+cd financialservices
 pip install -r requirements.txt
 python sync_tickers.py
 
+## 📂 Project Structure
 
-🖥️ Usage
-Launch the App:
+| File / Folder | Description |
+| :--- | :--- |
+| `app.py` | Main Streamlit interface and session state controller. |
+| `src/judge.py` | Dual-agent reasoning logic (Analyst + Auditor). |
+| `src/scraper.py` | Deterministic SEC EDGAR data extraction via `edgartools`. |
+| `src/ingester.py` | Local Vector DB management using `ChromaDB`. |
+| `src/evaluator.py` | JSONL log parsing and metric calculations. |
+| `data/us_tickers.csv` | **(Included)** Pre-cached mapping of 10,000+ US Tickers. |
+| `logs/` | **(Ignored)** Local JSONL audit trails for reasoning history. |
+| `vector_db/` | **(Ignored)** Persistent embeddings for indexed filings. |
 
-Bash
+## 🔒 Privacy & Security
 
-streamlit run app.py
-Setup Identity: Enter your email in the sidebar (required for SEC data access).
+- **No Data Leaks:** Raw filings, logs, and vector stores are excluded from Git via `.gitignore`. Your research history stays on your machine.
+- **Credential Safety:** API keys and emails are handled via Streamlit session state and are never hardcoded or saved to disk.
+- **Auditability:** The local log system ensures you can always trace how the AI arrived at a specific financial conclusion by comparing the Analyst's draft vs. the Auditor's refinement.
 
-Ingest Data: Select a company (e.g., AAPL, NVDA). If the local index doesn't exist, the app will scrape and embed the latest 10-K automatically.
+- ## 🖥️ Usage
 
-Audit: Ask complex questions. Enable High Precision Mode to see the Auditor agent refine the Analyst's initial findings.
-
-Analyze Logs: Expand the "Audit History" in the sidebar to view the "Before vs. After" of your agentic reasoning.
-
-
-File,Description
-app.py,Streamlit UI with integrated Log Viewer.
-src/judge.py,Core Agentic logic (Analyst + Auditor).
-src/scraper.py,Deterministic SEC EDGAR data extraction.
-src/ingester.py,Local Vector DB management (Chroma).
-src/evaluator.py,Log parsing and metrics calculation.
-logs/,(Ignored) Local JSONL audit trails.
-vector_db/,(Ignored) Local persistent embeddings.
-
-
-🔒 Privacy & Security
-No Data Leaks: Raw filings and vector stores are excluded from Git via .gitignore.
-
-Credential Safety: API keys and emails are handled via session state and never hardcoded.
-
-Auditability: The local log system ensures you can always trace how the AI arrived at a specific financial conclusion.
-
-⚖️ License
-Distributed under the MIT License.
+1. **Launch the App:**
+2. Setup Identity: Enter your email in the sidebar (required for SEC EDGAR compliance).
+3. Ingest Data: Search for a company. If it's your first time analyzing them, the app will scrape and index the 10-K.
+4. Audit: Enable High Precision Mode to trigger the Senior Auditor agent for verified results.
+   ```bash
+   streamlit run app.py
